@@ -8,14 +8,16 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+
   try {
     const body = await request.json();
     const { action } = body;
 
     const reservation = await prisma.reservation.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: { customer: true, deposit: true },
     });
 
@@ -43,7 +45,6 @@ export async function PATCH(
       let refundedAmount = 0;
 
       if (shouldRefund && reservation.deposit) {
-        // เรียก Stripe Refund
         const refund = await stripe.refunds.create({
           payment_intent: reservation.deposit.stripePaymentIntentId!,
           amount: reservation.deposit.amountSatang,
@@ -61,7 +62,6 @@ export async function PATCH(
 
         refundedAmount = reservation.deposit.amountSatang / 100;
 
-        // ส่ง Email แจ้งคืนเงิน
         await sendRefundEmail({
           to: reservation.customer.email,
           firstName: reservation.customer.firstName,
@@ -70,9 +70,8 @@ export async function PATCH(
         });
       }
 
-      // อัปเดต Reservation
       await prisma.reservation.update({
-        where: { id: params.id },
+        where: { id },
         data: {
           status: "cancelled",
           cancelledAt: new Date(),
@@ -90,7 +89,7 @@ export async function PATCH(
     // ── Update Status ──
     if (action === "updateStatus") {
       const updated = await prisma.reservation.update({
-        where: { id: params.id },
+        where: { id },
         data: { status: body.status },
       });
       return NextResponse.json({ success: true, reservation: updated });

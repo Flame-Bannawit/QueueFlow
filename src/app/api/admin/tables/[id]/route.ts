@@ -3,12 +3,14 @@ import { prisma } from "@/lib/prisma";
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+
   try {
     const body = await request.json();
     const table = await prisma.restaurantTable.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         ...(body.status && { status: body.status }),
         ...(body.seats && { seats: body.seats }),
