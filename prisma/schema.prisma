@@ -1,0 +1,102 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model RestaurantTable {
+  id          String   @id @default(uuid())
+  tableNumber String   @unique @map("table_number")
+  displayName String   @map("display_name")
+  seats       Int
+  zone        String
+  status      String   @default("available") // available, reserved, maintenance
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  reservations Reservation[]
+
+  @@map("restaurant_tables")
+}
+
+model Customer {
+  id               String   @id @default(uuid())
+  firstName        String   @map("first_name")
+  lastName         String   @map("last_name")
+  email            String   @unique
+  phone            String
+  stripeCustomerId String?  @unique @map("stripe_customer_id")
+  visitCount       Int      @default(0) @map("visit_count")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  reservations Reservation[]
+  deposits     Deposit[]
+
+  @@map("customers")
+}
+
+model Reservation {
+  id              String    @id @default(uuid())
+  referenceCode   String    @unique @map("reference_code")
+  customerId      String    @map("customer_id")
+  tableId         String    @map("table_id")
+  reservationDate DateTime  @map("reservation_date") @db.Date
+  reservationTime String    @map("reservation_time")
+  expectedEndTime String    @map("expected_end_time")
+  partySize       Int       @map("party_size")
+  status          String    @default("pending")
+  // pending, confirmed, seated, completed, cancelled, no_show
+  specialRequests String?   @map("special_requests")
+  occasion        String?
+  confirmedAt     DateTime? @map("confirmed_at")
+  cancelledAt     DateTime? @map("cancelled_at")
+  cancelReason    String?   @map("cancel_reason")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  customer Customer        @relation(fields: [customerId], references: [id])
+  table    RestaurantTable @relation(fields: [tableId], references: [id])
+  deposit  Deposit?
+
+  @@map("reservations")
+}
+
+model Deposit {
+  id                     String    @id @default(uuid())
+  reservationId          String    @unique @map("reservation_id")
+  customerId             String    @map("customer_id")
+  amountSatang           Int       @map("amount_satang")
+  depositPerPersonSatang Int       @map("deposit_per_person_satang")
+  currency               String    @default("thb")
+  stripeSessionId        String?   @unique @map("stripe_session_id")
+  stripePaymentIntentId  String?   @unique @map("stripe_payment_intent_id")
+  stripeChargeId         String?   @unique @map("stripe_charge_id")
+  paymentStatus          String    @default("pending") @map("payment_status")
+  // pending, paid, refunded, failed
+  paidAt                 DateTime? @map("paid_at")
+  refundedAmountSatang   Int       @default(0) @map("refunded_amount_satang")
+  stripeRefundId         String?   @map("stripe_refund_id")
+  refundedAt             DateTime? @map("refunded_at")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  reservation Reservation @relation(fields: [reservationId], references: [id])
+  customer    Customer    @relation(fields: [customerId], references: [id])
+
+  @@map("deposits")
+}
+
+model Admin {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("admins")
+}
