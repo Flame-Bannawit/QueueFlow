@@ -15,6 +15,7 @@ export default function BookingPage() {
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
   const [zone, setZone] = useState("ทั้งหมด");
   const [loading, setLoading] = useState(false);
+  const [searched, setSearched] = useState(false);
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
@@ -25,14 +26,14 @@ export default function BookingPage() {
   });
 
   const today = new Date().toISOString().split("T")[0];
+  const deposit = partySize * DEPOSIT_PER_PERSON;
 
   const searchTables = async () => {
     if (!date) return alert("กรุณาเลือกวันที่");
     setLoading(true);
+    setSearched(true);
     try {
-      const res = await fetch(
-        `/api/tables?date=${date}&time=${time}&partySize=${partySize}`
-      );
+      const res = await fetch(`/api/tables?date=${date}&time=${time}&partySize=${partySize}`);
       const data = await res.json();
       setTables(data.tables);
       setSelectedTable(null);
@@ -43,18 +44,11 @@ export default function BookingPage() {
     }
   };
 
-  const filteredTables =
-    zone === "ทั้งหมด"
-      ? tables
-      : tables.filter((t) => t.zone === zone);
-
-  const deposit = partySize * DEPOSIT_PER_PERSON;
+  const filteredTables = zone === "ทั้งหมด" ? tables : tables.filter((t) => t.zone === zone);
 
   const handleSubmit = async () => {
     if (!selectedTable) return;
-    if (!form.firstName || !form.email || !form.phone) {
-      return alert("กรุณากรอกข้อมูลให้ครบ");
-    }
+    if (!form.firstName || !form.email || !form.phone) return alert("กรุณากรอกข้อมูลให้ครบ");
     setLoading(true);
     try {
       const res = await fetch("/api/reservations", {
@@ -70,7 +64,6 @@ export default function BookingPage() {
       });
       const data = await res.json();
       if (!res.ok) return alert(data.error);
-      // Redirect ไป Stripe
       window.location.href = data.stripeUrl;
     } catch {
       alert("เกิดข้อผิดพลาด กรุณาลองใหม่");
@@ -79,277 +72,260 @@ export default function BookingPage() {
     }
   };
 
+  const zoneColors: Record<string, string> = {
+    Window: "bg-blue-500",
+    Garden: "bg-green-500",
+    Main: "bg-violet-500",
+    Private: "bg-pink-500",
+    Banquet: "bg-orange-500",
+  };
+
   return (
-    <div className="min-h-screen bg-stone-50">
+    <div className="min-h-screen bg-gray-950">
       {/* Header */}
-      <header className="bg-stone-800 text-white py-4 px-6">
-        <h1 className="text-xl font-semibold">QueueFlow — จองโต๊ะ</h1>
+      <header className="bg-gray-900 border-b border-gray-800 px-4 md:px-8 py-4">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
+          <a href="/" className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-violet-600 rounded-lg flex items-center justify-center">
+              <span className="text-white font-black text-sm">Q</span>
+            </div>
+            <span className="text-white font-bold">QueueFlow</span>
+          </a>
+          {/* Steps */}
+          <div className="hidden md:flex items-center gap-2">
+            {[
+              { n: 1, label: "เลือกโต๊ะ" },
+              { n: 2, label: "ข้อมูล" },
+              { n: 3, label: "ชำระเงิน" },
+            ].map((s, i) => (
+              <div key={s.n} className="flex items-center gap-2">
+                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition
+                  ${step === s.n ? "bg-violet-600 text-white" : step > s.n ? "bg-green-600 text-white" : "bg-gray-800 text-gray-400"}`}>
+                  <span>{step > s.n ? "✓" : s.n}</span>
+                  <span>{s.label}</span>
+                </div>
+                {i < 2 && <div className="w-6 h-px bg-gray-700" />}
+              </div>
+            ))}
+          </div>
+        </div>
       </header>
 
-      {/* Steps */}
-      <div className="flex justify-center gap-8 py-6 bg-white border-b">
-        {[
-          { n: 1, label: "เลือกโต๊ะ" },
-          { n: 2, label: "ข้อมูล & ชำระมัดจำ" },
-          { n: 3, label: "เสร็จสิ้น" },
-        ].map((s) => (
-          <div key={s.n} className="flex items-center gap-2">
-            <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
-              ${step === s.n ? "bg-stone-800 text-white" : step > s.n ? "bg-green-600 text-white" : "bg-stone-200 text-stone-500"}`}
-            >
-              {step > s.n ? "✓" : s.n}
-            </div>
-            <span className={`text-sm ${step === s.n ? "font-medium text-stone-800" : "text-stone-400"}`}>
-              {s.label}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      <div className="max-w-6xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Main Content */}
-        <div className="lg:col-span-2">
-          {step === 1 && (
-            <div>
-              {/* Search Bar */}
-              <div className="bg-white p-6 rounded-xl shadow-sm mb-6">
-                <h2 className="text-lg font-semibold mb-4 text-stone-800">ค้นหาโต๊ะว่าง</h2>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="col-span-2 md:col-span-1">
-                    <label className="text-xs text-stone-500 uppercase tracking-wide">วันที่</label>
-                    <input
-                      type="date"
-                      min={today}
-                      value={date}
-                      onChange={(e) => setDate(e.target.value)}
-                      className="w-full mt-1 border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stone-400"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-stone-500 uppercase tracking-wide">เวลา</label>
-                    <select
-                      value={time}
-                      onChange={(e) => setTime(e.target.value)}
-                      className="w-full mt-1 border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stone-400"
-                    >
-                      {TIME_SLOTS.map((t) => (
-                        <option key={t} value={t}>{t}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs text-stone-500 uppercase tracking-wide">จำนวนท่าน</label>
-                    <select
-                      value={partySize}
-                      onChange={(e) => setPartySize(Number(e.target.value))}
-                      className="w-full mt-1 border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stone-400"
-                    >
-                      {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-                        <option key={n} value={n}>{n} ท่าน</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="flex items-end">
-                    <button
-                      onClick={searchTables}
-                      disabled={loading}
-                      className="w-full bg-stone-800 text-white py-2 rounded-lg text-sm hover:bg-stone-700 transition disabled:opacity-50"
-                    >
-                      {loading ? "กำลังค้นหา..." : "ค้นหา"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Zone Filter */}
-              {tables.length > 0 && (
-                <div className="flex gap-2 mb-4 flex-wrap">
-                  {["ทั้งหมด", ...ZONES].map((z) => (
-                    <button
-                      key={z}
-                      onClick={() => setZone(z)}
-                      className={`px-4 py-1.5 rounded-full text-sm transition
-                        ${zone === z ? "bg-stone-800 text-white" : "bg-white text-stone-600 border border-stone-200 hover:border-stone-400"}`}
-                    >
-                      {z}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Tables Grid */}
-              {filteredTables.length > 0 ? (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {filteredTables.map((table) => (
-                    <div
-                      key={table.id}
-                      onClick={() => setSelectedTable(table)}
-                      className={`bg-white p-4 rounded-xl shadow-sm cursor-pointer border-2 transition
-                        ${selectedTable?.id === table.id
-                          ? "border-stone-800 bg-stone-50"
-                          : "border-transparent hover:border-stone-300"}`}
-                    >
-                      <div className="text-xs text-stone-400 uppercase mb-1">{table.zone}</div>
-                      <div className="text-lg font-semibold text-stone-800">{table.displayName}</div>
-                      <div className="text-sm text-stone-500">รองรับ {table.seats} ท่าน</div>
-                      {selectedTable?.id === table.id && (
-                        <div className="text-xs text-stone-800 font-medium mt-2">✓ เลือกแล้ว</div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : tables.length === 0 && !loading ? (
-                <div className="text-center py-16 text-stone-400">
-                  กรุณาค้นหาโต๊ะว่างก่อนครับ
-                </div>
-              ) : (
-                <div className="text-center py-16 text-stone-400">
-                  ไม่มีโต๊ะว่างในช่วงเวลานี้
-                </div>
-              )}
-            </div>
-          )}
-
-          {step === 2 && (
-            <div className="bg-white p-6 rounded-xl shadow-sm">
-              <h2 className="text-lg font-semibold mb-6 text-stone-800">ข้อมูลผู้จอง</h2>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs text-stone-500 uppercase tracking-wide">ชื่อ *</label>
-                  <input
-                    value={form.firstName}
-                    onChange={(e) => setForm({ ...form, firstName: e.target.value })}
-                    className="w-full mt-1 border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stone-400"
-                    placeholder="ชื่อจริง"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-stone-500 uppercase tracking-wide">นามสกุล</label>
-                  <input
-                    value={form.lastName}
-                    onChange={(e) => setForm({ ...form, lastName: e.target.value })}
-                    className="w-full mt-1 border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stone-400"
-                    placeholder="นามสกุล"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-stone-500 uppercase tracking-wide">เบอร์โทร *</label>
-                  <input
-                    value={form.phone}
-                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                    className="w-full mt-1 border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stone-400"
-                    placeholder="08x-xxx-xxxx"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-stone-500 uppercase tracking-wide">อีเมล *</label>
-                  <input
-                    type="email"
-                    value={form.email}
-                    onChange={(e) => setForm({ ...form, email: e.target.value })}
-                    className="w-full mt-1 border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stone-400"
-                    placeholder="email@example.com"
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label className="text-xs text-stone-500 uppercase tracking-wide">วาระพิเศษ</label>
-                  <input
-                    value={form.occasion}
-                    onChange={(e) => setForm({ ...form, occasion: e.target.value })}
-                    className="w-full mt-1 border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stone-400"
-                    placeholder="เช่น วันเกิด, ครบรอบ"
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label className="text-xs text-stone-500 uppercase tracking-wide">หมายเหตุ</label>
-                  <textarea
-                    value={form.specialRequests}
-                    onChange={(e) => setForm({ ...form, specialRequests: e.target.value })}
-                    rows={3}
-                    className="w-full mt-1 border border-stone-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-stone-400"
-                    placeholder="เช่น อาหารที่แพ้, ความต้องการพิเศษ"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-6 p-4 bg-amber-50 rounded-lg border border-amber-200">
-                <p className="text-sm text-amber-800">
-                  💳 ชำระมัดจำ <strong>฿{deposit.toLocaleString()}</strong> ผ่าน Stripe อย่างปลอดภัย
-                  <br />
-                  <span className="text-xs">ยกเลิกล่วงหน้า 24 ชม. คืนเงินเต็มจำนวน</span>
-                </p>
-              </div>
-
-              <div className="flex gap-3 mt-6">
-                <button
-                  onClick={() => setStep(1)}
-                  className="flex-1 border border-stone-300 text-stone-700 py-3 rounded-lg text-sm hover:bg-stone-50 transition"
-                >
-                  ย้อนกลับ
-                </button>
-                <button
-                  onClick={handleSubmit}
-                  disabled={loading}
-                  className="flex-1 bg-stone-800 text-white py-3 rounded-lg text-sm hover:bg-stone-700 transition disabled:opacity-50"
-                >
-                  {loading ? "กำลังดำเนินการ..." : `ชำระมัดจำ ฿${deposit.toLocaleString()}`}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Sidebar Summary */}
-        <div className="lg:col-span-1">
-          <div className="bg-white p-6 rounded-xl shadow-sm sticky top-4">
-            <h3 className="font-semibold text-stone-800 mb-4">สรุปการจอง</h3>
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-stone-500">วันที่</span>
-                <span className="text-stone-800">{date || "-"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-stone-500">เวลา</span>
-                <span className="text-stone-800">{time} น.</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-stone-500">จำนวน</span>
-                <span className="text-stone-800">{partySize} ท่าน</span>
-              </div>
-              {selectedTable && (
-                <>
-                  <div className="flex justify-between">
-                    <span className="text-stone-500">โต๊ะ</span>
-                    <span className="text-stone-800">{selectedTable.displayName}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-stone-500">โซน</span>
-                    <span className="text-stone-800">{selectedTable.zone}</span>
-                  </div>
-                </>
-              )}
-              <div className="border-t pt-3 flex justify-between font-medium">
-                <span className="text-stone-500">มัดจำ ({partySize}×฿{DEPOSIT_PER_PERSON})</span>
-                <span className="text-stone-800 text-lg">฿{deposit.toLocaleString()}</span>
-              </div>
-            </div>
-
+      <div className="max-w-6xl mx-auto px-4 md:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Main */}
+          <div className="lg:col-span-2">
             {step === 1 && (
-              <button
-                disabled={!selectedTable}
-                onClick={() => setStep(2)}
-                className="w-full mt-6 bg-stone-800 text-white py-3 rounded-lg text-sm hover:bg-stone-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {selectedTable ? `ต่อไป →` : "เลือกโต๊ะก่อน"}
-              </button>
+              <div>
+                {/* Search Card */}
+                <div className="bg-gray-900 rounded-2xl p-6 mb-6 border border-gray-800">
+                  <h2 className="text-white font-bold text-xl mb-5">🔍 ค้นหาโต๊ะว่าง</h2>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="col-span-2 md:col-span-1">
+                      <label className="text-gray-400 text-xs uppercase tracking-wide block mb-1.5">วันที่</label>
+                      <input
+                        type="date"
+                        min={today}
+                        value={date}
+                        onChange={(e) => setDate(e.target.value)}
+                        className="w-full bg-gray-800 border border-gray-700 text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-gray-400 text-xs uppercase tracking-wide block mb-1.5">เวลา</label>
+                      <select
+                        value={time}
+                        onChange={(e) => setTime(e.target.value)}
+                        className="w-full bg-gray-800 border border-gray-700 text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                      >
+                        {TIME_SLOTS.map((t) => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-gray-400 text-xs uppercase tracking-wide block mb-1.5">จำนวน</label>
+                      <select
+                        value={partySize}
+                        onChange={(e) => setPartySize(Number(e.target.value))}
+                        className="w-full bg-gray-800 border border-gray-700 text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                      >
+                        {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                          <option key={n} value={n}>{n} ท่าน</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex items-end">
+                      <button
+                        onClick={searchTables}
+                        disabled={loading}
+                        className="w-full bg-violet-600 hover:bg-violet-500 text-white py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-50"
+                      >
+                        {loading ? "⏳ ค้นหา..." : "ค้นหา"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Zone Filter */}
+                {tables.length > 0 && (
+                  <div className="flex gap-2 mb-5 flex-wrap">
+                    {["ทั้งหมด", ...ZONES].map((z) => (
+                      <button
+                        key={z}
+                        onClick={() => setZone(z)}
+                        className={`px-4 py-1.5 rounded-full text-sm font-medium transition
+                          ${zone === z ? "bg-violet-600 text-white" : "bg-gray-800 text-gray-400 hover:text-white border border-gray-700"}`}
+                      >
+                        {z}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Tables Grid */}
+                {loading ? (
+                  <div className="text-center py-16 text-gray-500">กำลังค้นหา...</div>
+                ) : filteredTables.length > 0 ? (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {filteredTables.map((table) => (
+                      <div
+                        key={table.id}
+                        onClick={() => setSelectedTable(table)}
+                        className={`relative bg-gray-900 rounded-2xl p-5 cursor-pointer border-2 transition
+                          ${selectedTable?.id === table.id
+                            ? "border-violet-500 bg-violet-950"
+                            : "border-gray-800 hover:border-gray-600"}`}
+                      >
+                        <div className={`inline-block px-2 py-0.5 rounded-full text-white text-xs font-medium mb-3 ${zoneColors[table.zone] || "bg-gray-600"}`}>
+                          {table.zone}
+                        </div>
+                        <div className="text-white font-bold text-lg mb-1">{table.displayName}</div>
+                        <div className="text-gray-400 text-sm">🪑 {table.seats} ที่นั่ง</div>
+                        {selectedTable?.id === table.id && (
+                          <div className="absolute top-3 right-3 w-6 h-6 bg-violet-500 rounded-full flex items-center justify-center">
+                            <span className="text-white text-xs">✓</span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : searched && !loading ? (
+                  <div className="text-center py-16">
+                    <div className="text-4xl mb-3">😔</div>
+                    <div className="text-gray-400">ไม่มีโต๊ะว่างในช่วงเวลานี้</div>
+                  </div>
+                ) : (
+                  <div className="text-center py-16">
+                    <div className="text-4xl mb-3">🔍</div>
+                    <div className="text-gray-500">เลือกวันและเวลาแล้วกด ค้นหา ครับ</div>
+                  </div>
+                )}
+              </div>
             )}
 
-            <p className="text-xs text-stone-400 mt-4 leading-relaxed">
-              • มัดจำหักจากยอดเมื่อมาถึง<br />
-              • เกิน 15 นาทีไม่รอ = No-show<br />
-              • ระบบชำระผ่าน Stripe (PCI DSS)
-            </p>
+            {step === 2 && (
+              <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800">
+                <h2 className="text-white font-bold text-xl mb-6">👤 ข้อมูลผู้จอง</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {[
+                    { label: "ชื่อ *", key: "firstName", placeholder: "ชื่อจริง", type: "text" },
+                    { label: "นามสกุล", key: "lastName", placeholder: "นามสกุล", type: "text" },
+                    { label: "เบอร์โทร *", key: "phone", placeholder: "08x-xxx-xxxx", type: "tel" },
+                    { label: "อีเมล *", key: "email", placeholder: "email@example.com", type: "email" },
+                    { label: "วาระพิเศษ", key: "occasion", placeholder: "เช่น วันเกิด, ครบรอบ", type: "text" },
+                  ].map((f) => (
+                    <div key={f.key} className={f.key === "occasion" ? "md:col-span-2" : ""}>
+                      <label className="text-gray-400 text-xs uppercase tracking-wide block mb-1.5">{f.label}</label>
+                      <input
+                        type={f.type}
+                        placeholder={f.placeholder}
+                        value={form[f.key as keyof typeof form]}
+                        onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+                        className="w-full bg-gray-800 border border-gray-700 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 placeholder-gray-600"
+                      />
+                    </div>
+                  ))}
+                  <div className="md:col-span-2">
+                    <label className="text-gray-400 text-xs uppercase tracking-wide block mb-1.5">หมายเหตุ</label>
+                    <textarea
+                      rows={3}
+                      placeholder="เช่น อาหารที่แพ้, ความต้องการพิเศษ"
+                      value={form.specialRequests}
+                      onChange={(e) => setForm({ ...form, specialRequests: e.target.value })}
+                      className="w-full bg-gray-800 border border-gray-700 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 placeholder-gray-600 resize-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-6 bg-yellow-400/10 border border-yellow-400/30 rounded-xl p-4">
+                  <p className="text-yellow-300 text-sm font-medium">
+                    💳 ชำระมัดจำ ฿{deposit.toLocaleString()} ผ่าน Stripe
+                  </p>
+                  <p className="text-yellow-300/60 text-xs mt-1">ยกเลิกล่วงหน้า 24 ชม. คืนเงินเต็มจำนวน</p>
+                </div>
+
+                <div className="flex gap-3 mt-6">
+                  <button
+                    onClick={() => setStep(1)}
+                    className="flex-1 bg-gray-800 text-gray-300 py-3 rounded-xl text-sm font-medium hover:bg-gray-700 transition"
+                  >
+                    ← ย้อนกลับ
+                  </button>
+                  <button
+                    onClick={handleSubmit}
+                    disabled={loading}
+                    className="flex-1 bg-gradient-to-r from-violet-600 to-purple-600 text-white py-3 rounded-xl text-sm font-bold hover:from-violet-500 hover:to-purple-500 transition disabled:opacity-50"
+                  >
+                    {loading ? "⏳ กำลังดำเนินการ..." : `ชำระมัดจำ ฿${deposit.toLocaleString()} →`}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Sidebar */}
+          <div className="lg:col-span-1">
+            <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800 sticky top-4">
+              <h3 className="text-white font-bold text-lg mb-5">📋 สรุปการจอง</h3>
+              <div className="space-y-3">
+                {[
+                  { label: "วันที่", value: date || "-" },
+                  { label: "เวลา", value: `${time} น.` },
+                  { label: "จำนวน", value: `${partySize} ท่าน` },
+                  ...(selectedTable ? [
+                    { label: "โต๊ะ", value: selectedTable.displayName },
+                    { label: "โซน", value: selectedTable.zone },
+                  ] : []),
+                ].map((r) => (
+                  <div key={r.label} className="flex justify-between text-sm">
+                    <span className="text-gray-500">{r.label}</span>
+                    <span className="text-gray-200 font-medium">{r.value}</span>
+                  </div>
+                ))}
+                <div className="border-t border-gray-800 pt-3 flex justify-between items-center">
+                  <span className="text-gray-400 text-sm">มัดจำ ({partySize}×฿{DEPOSIT_PER_PERSON})</span>
+                  <span className="text-yellow-300 font-black text-xl">฿{deposit.toLocaleString()}</span>
+                </div>
+              </div>
+
+              {step === 1 && (
+                <button
+                  disabled={!selectedTable}
+                  onClick={() => setStep(2)}
+                  className="w-full mt-5 bg-gradient-to-r from-violet-600 to-purple-600 text-white py-3 rounded-xl text-sm font-bold hover:from-violet-500 hover:to-purple-500 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  {selectedTable ? "กรอกข้อมูล →" : "เลือกโต๊ะก่อน"}
+                </button>
+              )}
+
+              <div className="mt-4 space-y-1.5">
+                {["มัดจำหักจากยอดเมื่อมาถึง", "เกิน 15 นาที = No-show", "ชำระผ่าน Stripe (PCI DSS)"].map((t) => (
+                  <div key={t} className="flex items-center gap-2 text-xs text-gray-500">
+                    <span className="text-violet-500">•</span>
+                    {t}
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </div>

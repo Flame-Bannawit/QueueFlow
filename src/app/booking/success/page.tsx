@@ -8,35 +8,55 @@ export default async function SuccessPage({
   const { ref } = await searchParams;
 
   return (
-    <div className="min-h-screen bg-stone-50 flex items-center justify-center px-4">
-      <div className="bg-white rounded-2xl shadow-sm p-10 max-w-md w-full text-center">
-        <div className="text-5xl mb-4">✅</div>
-        <h1 className="text-2xl font-bold text-stone-800 mb-2">จองสำเร็จแล้ว!</h1>
-        <p className="text-stone-500 mb-6">
-          ระบบส่งอีเมลยืนยันให้คุณแล้วครับ
-        </p>
-
-        {ref && (
-          <div className="bg-stone-100 rounded-xl p-4 mb-6">
-            <p className="text-xs text-stone-400 uppercase tracking-wide mb-1">
-              รหัสการจอง
-            </p>
-            <p className="text-xl font-bold text-stone-800 tracking-wider">{ref}</p>
+    <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4">
+      <div className="w-full max-w-md">
+        {/* Card */}
+        <div className="bg-gray-900 rounded-3xl p-8 border border-gray-800 text-center">
+          {/* Icon */}
+          <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+            <span className="text-4xl">✅</span>
           </div>
-        )}
 
-        <p className="text-sm text-stone-400 mb-8 leading-relaxed">
-          กรุณาแสดงรหัสนี้เมื่อมาถึงร้าน
-          <br />
-          หากต้องการยกเลิก กรุณาแจ้งล่วงหน้า 24 ชั่วโมง
-        </p>
+          <h1 className="text-white font-black text-2xl md:text-3xl mb-2">
+            จองสำเร็จแล้ว!
+          </h1>
+          <p className="text-gray-400 text-sm mb-8">
+            ระบบส่งอีเมลยืนยันให้คุณแล้วครับ
+          </p>
 
-        <Link
-          href="/booking"
-          className="block w-full bg-stone-800 text-white py-3 rounded-xl text-sm hover:bg-stone-700 transition"
-        >
-          จองโต๊ะอีกครั้ง
-        </Link>
+          {ref && (
+            <div className="bg-gradient-to-r from-violet-600/20 to-purple-600/20 border border-violet-500/30 rounded-2xl p-5 mb-8">
+              <p className="text-gray-400 text-xs uppercase tracking-widest mb-2">รหัสการจอง</p>
+              <p className="text-white font-black text-2xl tracking-wider">{ref}</p>
+            </div>
+          )}
+
+          <div className="bg-gray-800 rounded-2xl p-4 mb-8 text-left space-y-2">
+            {[
+              "แสดงรหัสนี้เมื่อมาถึงร้าน",
+              "ยกเลิกล่วงหน้า 24 ชม. คืนเงินเต็มจำนวน",
+              "มาช้าเกิน 15 นาที ถือว่า No-show",
+            ].map((t) => (
+              <div key={t} className="flex items-center gap-2 text-sm text-gray-400">
+                <span className="text-violet-400 flex-shrink-0">•</span>
+                {t}
+              </div>
+            ))}
+          </div>
+
+          <Link
+            href="/booking"
+            className="block w-full bg-gradient-to-r from-violet-600 to-purple-600 text-white py-3.5 rounded-2xl font-bold hover:from-violet-500 hover:to-purple-500 transition"
+          >
+            จองโต๊ะอีกครั้ง
+          </Link>
+          <Link
+            href="/"
+            className="block w-full mt-3 bg-gray-800 text-gray-300 py-3.5 rounded-2xl font-medium hover:bg-gray-700 transition text-sm"
+          >
+            กลับหน้าแรก
+          </Link>
+        </div>
       </div>
     </div>
   );
